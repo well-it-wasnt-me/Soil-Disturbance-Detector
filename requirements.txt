@@ -1,0 +1,17 @@
+# Core dependencies
+numpy
+scikit-learn
+rasterio
+geopandas
+shapely
+matplotlib
+
+# Optional: needed only when using --download-sentinel
+geemap
+earthengine-api
+
+# Testing
+pytest
+
+# Progress
+tqdm

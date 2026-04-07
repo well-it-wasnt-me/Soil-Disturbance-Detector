@@ -1,0 +1,13 @@
+site_name: Disturbed Ground Detector
+site_description: Detect disturbed ground from before/after satellite imagery.
+theme:
+  name: readthedocs
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Walkthrough: walkthrough.md
+  - CLI Reference: cli.md
+  - Troubleshooting: troubleshooting.md
+markdown_extensions:
+  - admonition
+  - tables
