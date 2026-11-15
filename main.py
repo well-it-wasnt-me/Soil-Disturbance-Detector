@@ -1,7 +1,8 @@
-"""CLI entrypoint for disturbed ground detection.
+"""Run the detector from a checkout without installing it.
 
-This thin wrapper parses arguments and executes the pipeline implemented in
-``dgd.pipeline.DisturbanceDetector``.
+``python main.py scan --lat ... --lon ...`` is the same as ``dgd scan ...``
+after ``pip install -e .``. Old-style calls with no subcommand still go to
+``classify``, for anyone with 0.1 scripts lying around.
 """
 
 from __future__ import annotations
@@ -9,24 +10,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Ensure `src/` is importable when running from the repo root without installing.
-ROOT = Path(__file__).resolve().parent
-SRC = ROOT / "src"
+# Make src/ importable when running from the repo root without installing.
+SRC = Path(__file__).resolve().parent / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from dgd.cli import parse_args
-from dgd.pipeline import DisturbanceDetector, NullProgress, TqdmProgress
-
-
-def main() -> None:
-    """Parse CLI args and run the detection pipeline."""
-
-    args = parse_args()
-    progress = NullProgress() if args.no_progress else TqdmProgress(total_steps=10)
-    detector = DisturbanceDetector(args, progress=progress)
-    detector.run()
-
+from dgd.cli import main  # noqa: E402
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

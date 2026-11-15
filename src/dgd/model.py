@@ -1,4 +1,8 @@
-"""Model training and inference helpers."""
+"""RandomForest training and inference for classify mode.
+
+Three hundred trees, balanced classes, fixed seed. Not fancy. Fancy is what
+you try after boring stops working.
+"""
 
 from __future__ import annotations
 
@@ -25,7 +29,7 @@ def evaluate_model(clf: RandomForestClassifier, x_valid: np.ndarray, y_valid: np
     """Compute validation metrics (classification report + confusion matrix)."""
 
     y_pred = clf.predict(x_valid)
-    report = classification_report(y_valid, y_pred, digits=3)
+    report = classification_report(y_valid, y_pred, digits=3, zero_division=0)
     cm = confusion_matrix(y_valid, y_pred)
     return report, cm
 

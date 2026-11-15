@@ -1,7 +1,9 @@
-"""
-Quick helper to create a placeholder training_polygons.gpkg so the pipeline runs
-without manual labeling. Polygons are simple boxes placed relative to the raster
-extent; edit or redraw later in QGIS for real labels.
+"""Write a placeholder training_polygons.gpkg for ``dgd classify``.
+
+Three boxes placed by fractions of the raster extent: one "disturbed", two
+"background". They mean nothing. They exist so the pipeline runs end to end
+while you draw real labels in QGIS. Train a model on these and act on the
+result, and you deserve what happens next.
 """
 
 import argparse
@@ -54,7 +56,7 @@ def main():
         bounds = src.bounds
         crs = src.crs
 
-    # Three example boxes: one disturbed, two background.
+    # One disturbed box, two background boxes. Placeholders, not labels.
     geometries = [
         make_box(bounds, 0.35, 0.35, 0.1, 0.1),  # disturbed sample
         make_box(bounds, 0.15, 0.15, 0.12, 0.12),  # background

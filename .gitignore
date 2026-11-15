@@ -209,3 +209,8 @@ __marimo__/
 /outputs/
 *.gpkg
 *.egg-info
+# Evaluation outputs (built from CC BY-NC data, never committed)
+/eval/
+
+# Third-party papers for reference. Copyrighted, never committed.
+/materials/

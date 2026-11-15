@@ -1,4 +1,4 @@
-"""Raster-to-vector conversion utilities."""
+"""Raster to polygons, with a size filter. Specks under the threshold are noise until proven otherwise."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ def raster_to_polygons(
     crs,
     min_patch_area_m2: float,
 ) -> gpd.GeoDataFrame:
-    """Convert a binary disturbance raster to polygons with area filtering."""
+    """Polygonize pixels equal to 1 and keep patches of at least ``min_patch_area_m2``."""
     geoms = []
     vals = []
 
@@ -29,7 +29,7 @@ def raster_to_polygons(
 
     gdf = gpd.GeoDataFrame({"value": vals}, geometry=geoms, crs=crs)
 
-    # Reproject to a metric CRS for area filtering if current CRS is geographic.
+    # Areas in square degrees are meaningless. Measure in a local UTM zone instead.
     if gdf.crs and gdf.crs.is_geographic:
         gdf_metric = gdf.to_crs(gdf.estimate_utm_crs())
         gdf["area_m2"] = gdf_metric.geometry.area.values
