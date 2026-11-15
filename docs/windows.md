@@ -42,7 +42,9 @@ It runs when you push a tag starting with `v`, when a push changes the packaging
 2. freezes the app into `dist\DGD\` (`dgd.spec`),
 3. smoke-tests the frozen app without the internet: a grave search on a painted field and the map page (`smoke_test.py`),
 4. builds `DGD-Setup-<version>.exe` (`dgd.iss`),
-5. installs it silently and runs the installed copy.
+5. installs it silently and runs the installed copy,
+6. keeps the installer as the run's `DGD-Setup` artifact (at the bottom of the run's summary page, for signed-in users, for 90 days),
+7. on a `v` tag, also attaches it to that tag's GitHub release, creating the release if there is none. That is the link to give people.
 
 ### By hand, on Windows
 
