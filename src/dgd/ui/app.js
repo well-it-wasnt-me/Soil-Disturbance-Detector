@@ -405,6 +405,13 @@ function caseDialog(existing, onDone) {
     sinceField,
     h("div", { class: "field" }, h("label", { for: "cd-desc" }, "Description"), desc),
     h("div", { class: "row", style: { justifyContent: "flex-end" } },
+      isNew ? null : h("button", { class: "btn danger", type: "button", style: { marginRight: "auto" }, onclick: async () => {
+        const n = existing.searches || 0;
+        const keep = n ? `Its ${n === 1 ? "search stays" : `${n} searches stay`} in Jobs with ${n === 1 ? "its" : "their"} files and lead decisions. ` : "";
+        if (!confirm(`Delete the case “${existing.name}”? ${keep}The case log and notes are lost; export the case file first to keep them. To keep the case but put it away, set its status to Closed instead.`)) return;
+        const r = await guard(() => post(`/api/cases/${existing.id}/delete`));
+        if (r) { dlg.close(); dlg.remove(); S.cases = null; toast("Case deleted."); location.hash = "#/cases"; }
+      } }, "Delete case"),
       h("button", { class: "btn", type: "button", onclick: () => { dlg.close(); dlg.remove(); } }, "Cancel"),
       h("button", { class: "btn primary", type: "submit" }, isNew ? "Create case" : "Save")));
   dlg.append(form); document.body.append(dlg); dlg.showModal(); name.focus();

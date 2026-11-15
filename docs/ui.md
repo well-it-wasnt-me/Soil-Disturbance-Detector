@@ -21,6 +21,8 @@ A case holds everything about one investigation: its search areas, the searches 
 - **Log**: everything that happened, newest first. Searches queued and finished, decisions, status changes and notes. Add notes here.
 - **Files and hashes**: every search writes `manifest.json` with its inputs, settings, software version and a SHA-256 of each output. *Check* recomputes those hashes and names any file that changed or went missing since. *Export case file* downloads one zip with the case record and every search folder in it.
 
+- **Delete case** (in *Edit*): removes the case record and its log. Its searches are not deleted: they stay in Jobs with their files and lead decisions, no longer in any case, and can be added to another one. Export the case file first if you want to keep the log. To put a case away without losing anything, set it to *Closed*.
+
 Searches can also run without a case. They show up in Jobs, and a results page offers to add them to a case later.
 
 ## New search

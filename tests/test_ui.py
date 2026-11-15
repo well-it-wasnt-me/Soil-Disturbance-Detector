@@ -381,6 +381,41 @@ def test_unassigned_search_can_join_a_case(server):
     assert _req(port, "POST", f"/api/jobs/{jid}/case", body={"case_id": "case_nope"}, headers=g)[0] == 400
 
 
+def test_delete_case_keeps_its_searches(server):
+    app, port = server
+    g = _good(app)
+    cid = json.loads(_req(port, "POST", "/api/cases", body={"name": "Canal"}, headers=g)[2])["id"]
+    jid = json.loads(_req(port, "POST", "/api/jobs", body={"kind": "trash", "bbox": KIDLINGTON, "case_id": cid}, headers=g)[2])["id"]
+    _done(app, port, jid)
+    _req(port, "POST", f"/api/jobs/{jid}/review", body={"lead": "P001", "status": "checked"}, headers=g)
+
+    status, _, body = _req(port, "POST", f"/api/cases/{cid}/delete", headers=g)
+    assert status == 200 and json.loads(body) == {"deleted": cid, "unassigned": 1}
+    assert not (app.output_root / "cases" / f"{cid}.json").exists()
+    assert _req(port, "GET", f"/api/cases/{cid}", headers=g)[0] == 404
+    listing = json.loads(_req(port, "GET", "/api/cases", headers=g)[2])
+    assert listing["cases"] == [] and listing["unassigned"] == 1
+    # The search, its folder and its decisions survive, and can join another case.
+    job = json.loads(_req(port, "GET", f"/api/jobs/{jid}", headers=g)[2])
+    assert job["case_id"] is None and Path(app.jobs[jid].output_dir, "report.html").exists()
+    assert app.reviews(jid)["P001"]["status"] == "checked"
+    assert _req(port, "POST", f"/api/cases/{cid}/delete", headers=g)[0] == 404
+    again = App(app.output_root, "", port=0)
+    assert cid not in again.cases and again.jobs[jid].case_id is None
+
+
+def test_delete_case_refuses_while_a_search_runs(server):
+    from dgd.ui.server import Job
+
+    app, port = server
+    g = _good(app)
+    cid = json.loads(_req(port, "POST", "/api/cases", body={"name": "Busy"}, headers=g)[2])["id"]
+    app.jobs["busy"] = Job(id="busy", kind="trash", name="x", bbox=KIDLINGTON, params={}, output_dir=str(app.output_root / "busy"), case_id=cid, status="running")
+    status, _, body = _req(port, "POST", f"/api/cases/{cid}/delete", headers=g)
+    assert status == 400 and "running" in json.loads(body)["error"]
+    assert cid in app.cases
+
+
 def test_verify_names_changed_and_missing_files(server):
     from dgd.ui.server import _sha256
 

@@ -669,6 +669,23 @@ class App:
             self._save_case(case)
         return case
 
+    def delete_case(self, cid: str) -> int:
+        """Delete the case record and log. Its searches stay, unassigned, with their folders and reviews."""
+        case = self.cases.get(cid)
+        if case is None:
+            raise KeyError(cid)
+        jobs = self.case_jobs(cid)
+        if any(not j.finished_state for j in jobs):
+            raise ValueError("stop this case's running searches before deleting it")
+        with self.lock:
+            # Unlink the searches first: a crash halfway leaves an empty case, never searches pointing at nothing.
+            for j in jobs:
+                j.case_id = None
+                j.save()
+            del self.cases[cid]
+            (self.cases_dir / f"{cid}.json").unlink(missing_ok=True)
+        return len(jobs)
+
     def add_note(self, cid: str, text: str) -> dict:
         case = self.cases.get(cid)
         if case is None:
@@ -1237,8 +1254,10 @@ def make_handler(app: App):
                     return self._json(200, app.clear_cache(str(body.get("what", ""))))
                 if path == "/api/cases":
                     return self._json(201, app.case_summary(app.create_case(body)))
-                m = re.fullmatch(r"/api/cases/([\w-]+)(/note)?", path)
+                m = re.fullmatch(r"/api/cases/([\w-]+)(/note|/delete)?", path)
                 if m:
+                    if m.group(2) == "/delete":
+                        return self._json(200, {"deleted": m.group(1), "unassigned": app.delete_case(m.group(1))})
                     if m.group(2):
                         return self._json(201, app.add_note(m.group(1), body.get("text", "")))
                     return self._json(200, app.case_summary(app.update_case(m.group(1), body)))
