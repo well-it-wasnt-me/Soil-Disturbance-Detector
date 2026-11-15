@@ -28,7 +28,7 @@ dgd scan --lat 51.824 --lon -1.266 --radius-m 1500 \
          --name "Kidlington, Oxfordshire" --output-dir outputs/kidlington
 ```
 
-Then open `outputs/kidlington/report.html`. Prefer a map? `dgd ui` opens one in your browser: drag a box anywhere on Earth and run any of the scans from there ([docs/ui.md](docs/ui.md)). First run downloads a few hundred megabytes of imagery and takes a few minutes. Reruns on the same area come from the cache and take seconds.
+Then open `outputs/kidlington/report.html`. Prefer a map? `dgd ui` opens one in your browser: drag a box anywhere on Earth, run any of the scans from there, review the leads, keep them in cases and print field sheets ([docs/ui.md](docs/ui.md)). First run downloads a few hundred megabytes of imagery and takes a few minutes. Reruns on the same area come from the cache and take seconds.
 
 That example is not random. In 2025 roughly 20,000 tonnes of waste were dumped on a field between the A34 and the River Cherwell near Kidlington, and the Environment Agency shut it down in October. The scanner, told nothing except "look here, April to September", puts the dump in its top three leads and dates its arrival to spring 2025, months before the Environment Agency first went on site that July. See [docs/evaluation.md](docs/evaluation.md) for that and the broader test.
 
@@ -72,7 +72,7 @@ The manifest exists because if a lead ever turns into a case, somebody is going 
 ## Documentation
 
 - [Quickstart](docs/quickstart.md): install, first scan, reading the report
-- [Map interface](docs/ui.md): `dgd ui`, draw a box, run scans, manage jobs
+- [Map interface](docs/ui.md): `dgd ui`, cases, searches, lead review, field sheets, settings
 - [Field guide](docs/field-guide.md): how to triage leads and what fools the scanner
 - [How it works](docs/how-it-works.md): the method, and its limits
 - [Evaluation](docs/evaluation.md): how well it does on known sites

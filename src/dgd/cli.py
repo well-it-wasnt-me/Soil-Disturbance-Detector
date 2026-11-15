@@ -132,6 +132,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Keep only the N clearest passes per 14 days. Saves downloads where orbits overlap. 0 keeps all. Default 5.")
     o.add_argument("--max-chips", type=int, default=30, help="Image clips for the top N leads. Default 30.")
     o.add_argument("--no-progress", action="store_true", help="No progress bars.")
+    o.add_argument("--progress-json", action="store_true", help="Progress as JSON lines on stdout, for the map UI.")
 
     # classify
     c = sub.add_parser("classify", help="Supervised before/after classification with your own labeled polygons.")
@@ -183,6 +184,7 @@ def build_parser() -> argparse.ArgumentParser:
     go.add_argument("--max-chips", type=int, default=30, help="Close-up clips for the top N candidates. Default 30.")
     go.add_argument("--cache-dir", default=str(default_cache_dir()), help="Cache for OpenStreetMap queries.")
     go.add_argument("--no-progress", action="store_true", help="No progress bars.")
+    go.add_argument("--progress-json", action="store_true", help="Progress as JSON lines on stdout, for the map UI.")
 
     # imagery
     im = sub.add_parser("imagery", help="List free high resolution imagery (sources and years) available at a place.")
@@ -217,9 +219,16 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _progress(args, steps: int, label: str):
+    from dgd.progress import JsonProgress, NullProgress, TqdmProgress
+
+    if getattr(args, "progress_json", False):
+        return JsonProgress(total_steps=steps)
+    return NullProgress() if args.no_progress else TqdmProgress(total_steps=steps, label=label)
+
+
 def cmd_scan(args, progress=None) -> int:
     from dgd.landcover import parse_classes
-    from dgd.progress import NullProgress, TqdmProgress
     from dgd.report import write_all
     from dgd.scan import ScanConfig, run_scan
     from dgd.stac import EarthSearchSource
@@ -272,7 +281,7 @@ def cmd_scan(args, progress=None) -> int:
     )
     source = EarthSearchSource(cache_dir=cache, max_cloud=args.max_cloud, workers=args.workers)
     if progress is None:
-        progress = NullProgress() if args.no_progress else TqdmProgress(total_steps=7, label="Scan")
+        progress = _progress(args, 7, "Scan")
     try:
         result = run_scan(config, source, progress=progress)
         progress.step("Writing report")
@@ -329,7 +338,6 @@ def _bbox_around(lat: float, lon: float, radius_m: float) -> tuple[float, float,
 def cmd_graves(args, progress=None) -> int:
     from dgd.grave_report import write_all
     from dgd.grave_search import GraveSearchConfig, search
-    from dgd.progress import NullProgress, TqdmProgress
 
     out = Path(args.output_dir or f"outputs/graves_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
     after, before = args.after, args.before
@@ -375,7 +383,7 @@ def cmd_graves(args, progress=None) -> int:
         after_date=after_date, before_date=before_date, sources=sources,
     )
     if progress is None:
-        progress = NullProgress() if args.no_progress else TqdmProgress(total_steps=6, label="Grave search")
+        progress = _progress(args, 6, "Grave search")
     try:
         result = search(cfg, progress=progress)
         progress.step("Writing report")

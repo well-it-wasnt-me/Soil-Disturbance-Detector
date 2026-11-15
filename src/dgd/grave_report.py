@@ -281,6 +281,20 @@ def write_manifest(result: GraveSearchResult, out: Path, files: list[Path]) -> P
     return path
 
 
+def write_map_layers(result: GraveSearchResult, out: Path) -> list[Path]:
+    """After, before and evidence as map overlays for the UI's swipe view."""
+    from dgd.weblayers import safe_write_web_layers
+
+    cfg = result.config
+    after = result.after
+    images = {"after": (after.data[after.display_bands()], f"Searched image{', ' + cfg.after_date if cfg.after_date else ''}")}
+    if result.before is not None:
+        b = result.before
+        images = {"before": (b.data[b.display_bands()], f"Earlier image{', ' + cfg.before_date if cfg.before_date else ''}"), **images}
+    heat = {"score": (result.evidence.combined, cfg.min_score, "Grave evidence")}
+    return safe_write_web_layers(out, after.grid, images, heat)
+
+
 def write_all(result: GraveSearchResult) -> dict[str, Path]:
     out = Path(result.config.output_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -289,6 +303,7 @@ def write_all(result: GraveSearchResult) -> dict[str, Path]:
     files += write_chips(result, out)
     files.append(write_overview(result, out))
     files.append(write_html(result, out))
+    files += write_map_layers(result, out)
     manifest = write_manifest(result, out, files)
     outputs = {str(p.relative_to(out)): p for p in files}
     outputs["manifest.json"] = manifest
@@ -296,4 +311,4 @@ def write_all(result: GraveSearchResult) -> dict[str, Path]:
     return outputs
 
 
-__all__ = ["DISCLAIMER", "SCENE_RULES", "rows", "write_all", "write_gpx"]
+__all__ = ["DISCLAIMER", "SCENE_RULES", "rows", "write_all", "write_gpx", "write_map_layers"]

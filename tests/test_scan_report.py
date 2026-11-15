@@ -89,3 +89,30 @@ def test_scan_with_nothing_to_find_writes_an_empty_report(small_grid, tmp_path):
     assert result.candidates == []
     write_all(result)
     assert "No leads above the thresholds" in (tmp_path / "o" / "report.html").read_text()
+
+
+def test_web_layers_are_warped_pngs_with_their_corners(tmp_path):
+    import json as _json
+
+    import numpy as np
+    from PIL import Image
+
+    from dgd.aoi import grid_from_point
+    from dgd.weblayers import write_web_layers
+
+    grid = grid_from_point(41.0963, 14.4009, 300)
+    rng = np.random.default_rng(0)
+    rgb = rng.uniform(0.02, 0.2, size=(3, grid.height, grid.width)).astype(np.float32)
+    rgb[:, :3, :3] = np.nan
+    score = np.zeros(grid.shape, np.float32)
+    score[20:30, 20:30] = 8.0
+    paths = write_web_layers(tmp_path, grid, {"before": (rgb, "Before"), "after": (rgb * 1.2, "After")}, {"score": (score, 3.0, "Score")}, max_px=40)
+    meta = _json.loads((tmp_path / "web" / "layers.json").read_text())
+    (s, w), (n, e) = meta["bounds"]
+    lon0, lat0, lon1, lat1 = grid.lonlat_bbox()
+    assert abs(s - lat0) < 0.002 and abs(n - lat1) < 0.002 and abs(w - lon0) < 0.002 and abs(e - lon1) < 0.002
+    assert [layer["id"] for layer in meta["layers"]] == ["before", "after", "score"] and len(paths) == 4
+    img = Image.open(tmp_path / "web" / "score.png")
+    assert max(img.size) <= 40 and img.mode == "RGBA"
+    alpha = np.asarray(img)[..., 3]
+    assert alpha.max() > 0 and (alpha == 0).mean() > 0.5  # only the hot patch shows

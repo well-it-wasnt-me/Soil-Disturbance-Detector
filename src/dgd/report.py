@@ -451,6 +451,43 @@ def write_manifest(result: ScanResult, out: Path, files: list[Path]) -> Path:
     return path
 
 
+def write_timeseries(result: ScanResult, out: Path) -> Path:
+    """Every pass and every lead's score per pass, for the timeline in the map UI."""
+    bad = set(result.bad_passes)
+    target = {a.key for a in result.target}
+    cfg = result.config
+    data = {
+        "target_start": cfg.target_start.isoformat(),
+        "target_end": cfg.target_end.isoformat(),
+        "min_score": cfg.min_score,
+        "min_event_score": cfg.min_event_score,
+        "passes": [{"key": a.key, "date": a.date.isoformat(), "target": a.key in target, "bad": a.key in bad}
+                   for a in result.baseline + result.target],
+        "leads": {c.id: [[d.isoformat(), round(float(v), 2)] for d, v in c.timeseries if np.isfinite(v)]
+                  for c in result.candidates},
+    }
+    path = out / "timeseries.json"
+    path.write_text(json.dumps(data, indent=1), encoding="utf-8")
+    return path
+
+
+def write_map_layers(result: ScanResult, out: Path) -> list[Path]:
+    """Before, after and score as map overlays for the UI's swipe view."""
+    from dgd.weblayers import safe_write_web_layers
+
+    cfg = result.config
+    r = result.rasters
+    images = {}
+    if "rgb_baseline" in r:
+        images["before"] = (r["rgb_baseline"], f"Baseline, same season {cfg.baseline_years} years before")
+    if "rgb_target" in r:
+        images["after"] = (r["rgb_target"], f"Target, {cfg.target_start} to {cfg.target_end}")
+    heat = {"score": (r["score"], cfg.min_score, "Change score")}
+    if cfg.detect_transient and "event" in r:
+        heat["event"] = (r["event"], cfg.min_event_score, "Dig event strength")
+    return safe_write_web_layers(out, cfg.grid, images, heat)
+
+
 def write_all(result: ScanResult) -> dict[str, Path]:
     """Write every output into ``result.config.output_dir``. Returns name to path."""
     out = Path(result.config.output_dir)
@@ -461,6 +498,8 @@ def write_all(result: ScanResult) -> dict[str, Path]:
     files += write_chips(result, out)
     files.append(write_overview(result, out))
     files.append(write_html(result, out))
+    files.append(write_timeseries(result, out))
+    files += write_map_layers(result, out)
     manifest = write_manifest(result, out, files)
     outputs = {str(p.relative_to(out)): p for p in files}
     outputs["manifest.json"] = manifest
@@ -468,4 +507,4 @@ def write_all(result: ScanResult) -> dict[str, Path]:
     return outputs
 
 
-__all__ = ["DISCLAIMER", "candidate_rows", "write_all", "write_html", "write_kml", "write_manifest"]
+__all__ = ["DISCLAIMER", "candidate_rows", "write_all", "write_html", "write_kml", "write_manifest", "write_map_layers", "write_timeseries"]

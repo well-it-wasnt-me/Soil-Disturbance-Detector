@@ -67,6 +67,7 @@ Add `-v` before the command for debug logging.
 | `--workers` | `8` | Parallel downloads. |
 | `--max-chips` | `30` | Image clips for the top N leads. |
 | `--no-progress` | off | No progress bars. |
+| `--progress-json` | off | Progress as JSON lines on stdout, one per step and counter update. The map UI reads these for its progress bars. |
 
 ### Outputs
 
@@ -83,6 +84,8 @@ Add `-v` before the command for debug logging.
 | `event.tif` | Transient dig event strength. |
 | `candidates_mask.tif` | Label raster matching the `label` field in the GeoJSON. |
 | `manifest.json` | Version, command, every granule, every parameter, file hashes. |
+| `timeseries.json` | Every pass, and each lead's score on every clear pass. The map UI draws its timelines from it. |
+| `web/` | Before, after and score as Web Mercator PNGs with their corners in `layers.json`, for the map UI's swipe view. |
 
 ### Exit codes
 
@@ -133,8 +136,10 @@ Searches high resolution imagery for grave-sized disturbed ground. See [grave se
 | `--name` | | Case or area name. |
 | `--max-chips` | `30` | Close-up clips for the top N candidates. |
 | `--cache-dir` | `~/.cache/dgd` | Cache for OpenStreetMap queries. |
+| `--no-progress` | off | No progress bars. |
+| `--progress-json` | off | Progress as JSON lines on stdout, one per step and counter update. The map UI reads these for its progress bars. |
 
-Outputs: `report.html`, `candidates.gpx` (waypoints for handheld GPS and phones), `candidates.kml`, `candidates.geojson`, `candidates.csv`, `evidence.tif`, `chips/G001.png`, `overview.png`, `manifest.json`.
+Outputs: `report.html`, `candidates.gpx` (waypoints for handheld GPS and phones), `candidates.kml`, `candidates.geojson`, `candidates.csv`, `evidence.tif`, `chips/G001.png`, `overview.png`, `web/` (map overlays for the UI), `manifest.json`.
 
 ## dgd imagery
 
