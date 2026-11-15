@@ -1,6 +1,9 @@
 ; Inno Setup script for the Windows installer. Run after PyInstaller has built dist\DGD:
 ;
-;   iscc /DAppVersion=0.2.0 packaging\windows\dgd.iss
+;   iscc /DAppVersion=1.2.0 /DAppNumVersion=1.2.0 packaging\windows\dgd.iss
+;
+; The workflows pass dgd.__version__, which comes from the git tags. AppNumVersion
+; is its numeric part (1.2.1.dev3+gabc -> 1.2.1) for the file's version resource.
 ;
 ; Installs for the current user only (no administrator prompt) into
 ; %LOCALAPPDATA%\Programs, adds Start menu and desktop icons, and offers to
@@ -10,6 +13,9 @@
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
+#ifndef AppNumVersion
+  #define AppNumVersion "0.0.0"
+#endif
 #define AppName "Disturbed Ground Detector"
 
 [Setup]
@@ -17,6 +23,9 @@ AppId={{6B0E1C1A-3E0B-4C55-9A2E-0D6F2B9C4E71}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
+VersionInfoVersion={#AppNumVersion}
+VersionInfoProductTextVersion={#AppVersion}
+VersionInfoDescription={#AppName} Setup
 AppPublisher=Soil-Disturbance-Detector contributors
 AppPublisherURL=https://github.com/well-it-wasnt-me/Soil-Disturbance-Detector
 DefaultDirName={autopf}\{#AppName}

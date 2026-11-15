@@ -40,6 +40,27 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
+
+
+def version_resource():
+    """The version Windows shows in DGD.exe's Properties, from dgd.__version__ (from the git tags)."""
+    import re
+
+    from PyInstaller.utils.win32 import versioninfo as vi
+
+    from dgd import __version__
+
+    nums = [int(n) for n in re.match(r"[0-9.]*[0-9]", __version__).group().split(".")][:4]
+    nums = tuple(nums + [0] * (4 - len(nums)))
+    strings = {"CompanyName": "Soil-Disturbance-Detector contributors", "FileDescription": "Disturbed Ground Detector",
+               "FileVersion": __version__, "InternalName": "DGD", "LegalCopyright": "CC0 1.0, public domain",
+               "OriginalFilename": "DGD.exe", "ProductName": "Disturbed Ground Detector", "ProductVersion": __version__}
+    return vi.VSVersionInfo(
+        ffi=vi.FixedFileInfo(filevers=nums, prodvers=nums),
+        kids=[vi.StringFileInfo([vi.StringTable("040904B0", [vi.StringStruct(k, v) for k, v in strings.items()])]),
+              vi.VarFileInfo([vi.VarStruct("Translation", [1033, 1200])])])
+
+
 icon = HERE / "dgd.ico"
 exe = EXE(
     pyz,
@@ -51,6 +72,7 @@ exe = EXE(
     name="DGD",
     console=True,  # the window is the "it's running" sign; closing it quits
     icon=str(icon) if sys.platform == "win32" and icon.exists() else None,
+    version=version_resource() if sys.platform == "win32" else None,
     upx=False,  # UPX-packed exes trip antivirus heuristics
 )
 coll = COLLECT(exe, a.binaries, a.datas, name="DGD", upx=False)

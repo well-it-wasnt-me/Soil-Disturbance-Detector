@@ -4,7 +4,7 @@ For people who want the map and none of the Python. One installer, then a deskto
 
 ## Installing
 
-1. Get `DGD-Setup-<version>.exe` (see [Building the installer](#building-the-installer) for where it comes from).
+1. Get `DGD-Setup-<version>.exe` from the project's GitHub **Releases** page (every release has one, see [Versions and releases](releasing.md)).
 2. Double-click it. It installs for you alone, so it asks for no administrator password.
 3. Windows may say **"Windows protected your PC"**. The installer is not code-signed, and SmartScreen distrusts anything unsigned it has not seen many times. Click **More info**, then **Run anyway**.
 
@@ -55,7 +55,7 @@ pip install . "pyinstaller>=6.11,<7"
 python packaging\windows\make_icon.py packaging\windows\dgd.ico
 pyinstaller --noconfirm --clean packaging\windows\dgd.spec
 python packaging\windows\smoke_test.py dist\DGD\DGD.exe
-iscc /DAppVersion=0.2.0 packaging\windows\dgd.iss
+for /f %v in ('python -c "import dgd; print(dgd.__version__)"') do iscc /DAppVersion=%v packaging\windows\dgd.iss
 ```
 
 Install with `pip install .`, not `-e`: PyInstaller collects an editable install unreliably.

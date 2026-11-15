@@ -1,0 +1,101 @@
+name: Release
+
+# Every push to main that brings a feat: or fix: commit becomes a release.
+#
+#   1. version: work out the next version from the commit messages since the
+#      last vX.Y.Z tag (packaging/next_version.py). feat -> minor, fix -> patch,
+#      feat!/BREAKING CHANGE -> major. chore:, ci:, docs: ... alone: no release, stop here.
+#   2. tests and windows: the test suite, and the Windows installer built and
+#      smoke-tested at that version.
+#   3. publish: only if both pass, tag vX.Y.Z on the commit and make the GitHub
+#      release, notes and installer attached.
+#
+# Nothing is committed back: the version lives in the tag alone (docs/releasing.md).
+# Run it by hand (Actions > Release > Run workflow) to release without feat/fix commits.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Release at least this big, whatever the commits say
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+
+concurrency:  # one release at a time, so two quick merges cannot both claim the same version
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: next
+        env:
+          BUMP: ${{ inputs.bump || 'auto' }}
+        run: |
+          version=$(python3 packaging/next_version.py --bump "$BUMP" --notes notes.md --repo "$GITHUB_REPOSITORY")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ -n "$version" ]; then
+            { echo "## Releasing v$version"; echo; cat notes.md; } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Nothing to release: no feat or fix commits since the last release." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: steps.next.outputs.version != ''
+        with:
+          name: release-notes
+          path: notes.md
+
+  tests:
+    needs: version
+    if: needs.version.outputs.version != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest -q
+
+  windows:
+    needs: version
+    if: needs.version.outputs.version != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/windows-app.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+
+  publish:
+    needs: [version, tests, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: DGD-Setup
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+      - name: Tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" "dist/DGD-Setup-$VERSION.exe" --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "v$VERSION" --notes-file notes.md

@@ -6,6 +6,7 @@ nav:
   - Home: index.md
   - Quickstart: quickstart.md
   - Windows app: windows.md
+  - Versions and releases: releasing.md
   - Map interface: ui.md
   - Field guide: field-guide.md
   - Grave search: graves.md

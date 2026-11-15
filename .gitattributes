@@ -1,0 +1,3 @@
+# GitHub's "Source code" zips have no .git folder. git archive fills this file
+# in instead, so setuptools-scm still knows which version the zip is.
+.git_archival.txt  export-subst
