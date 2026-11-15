@@ -21,6 +21,8 @@ jobs:
   installer:
     runs-on: windows-latest
     timeout-minutes: 60
+    permissions:
+      contents: write  # to attach the installer to the release of a v* tag
     steps:
       - uses: actions/checkout@v5
 
@@ -69,3 +71,21 @@ jobs:
           name: DGD-Setup
           path: dist/DGD-Setup-*.exe
           if-no-files-found: error
+
+      # Artifacts expire and need a GitHub login. A release asset does neither,
+      # so a v* tag also puts the installer on its release, making one if needed.
+      - name: Attach the installer to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $setup = (Get-Item dist\DGD-Setup-*.exe).FullName
+          gh release view $tag *> $null
+          if ($LASTEXITCODE) {
+            gh release create $tag $setup --title $tag --generate-notes
+          } else {
+            gh release upload $tag $setup --clobber
+          }
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
