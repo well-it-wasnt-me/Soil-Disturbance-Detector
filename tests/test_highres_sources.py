@@ -110,7 +110,7 @@ def _fake_wms(monkeypatch, src, have_nir=True):
     """A fake GetMap: textured imagery for 2023 and 'latest', blank for other years, NIR in channel 0 when asked."""
     rng = np.random.default_rng(0)
 
-    def getmap(layer, bbox, w, h):
+    def getmap(layer, bbox, w, h, retries=3):
         if "2023" not in layer.name and layer.name not in ("ORTHOIMAGERY.ORTHOPHOTOS", "ORTHOIMAGERY.ORTHOPHOTOS.IRC"):
             return np.full((h, w, 4), 255, dtype=np.uint8)
         if "IRC" in layer.name and not have_nir:
@@ -184,3 +184,52 @@ def test_naip_fetch_accepts_latest(monkeypatch, tmp_path):
     monkeypatch.setattr(hs, "fetch_naip", lambda bbox, year, out: seen.setdefault("year", year))
     hs.SOURCES["naip"].fetch((-100.0, 40.0, -99.99, 40.01), "latest", tmp_path / "x.tif")
     assert seen["year"] == 2022
+
+
+class _FakeHTTP:
+    """urlopen stand-in that plays back a script of responses: bytes for a 200, (code, body) for an error."""
+
+    def __init__(self, script):
+        self.script, self.calls = list(script), 0
+
+    def __call__(self, req, timeout=None):
+        import io
+        import urllib.error
+
+        self.calls += 1
+        step = self.script.pop(0)
+        if isinstance(step, tuple):
+            code, body = step
+            raise urllib.error.HTTPError(req.full_url, code, "Bad Request", {}, io.BytesIO(body))
+        return io.BytesIO(step)
+
+
+def test_get_retries_a_passing_400_and_gets_the_tile(monkeypatch):
+    # IGN's Geoplateforme now and then answers a good GetMap with 400. It works a moment later.
+    fake = _FakeHTTP([(400, b"<html>busy</html>"), (400, b""), b"PNG"])
+    monkeypatch.setattr(hs.urllib.request, "urlopen", fake)
+    monkeypatch.setattr(hs.time, "sleep", lambda s: None)
+    assert hs._get("https://example.org/wms", retries=3) == b"PNG" and fake.calls == 3
+
+
+def test_get_gives_up_at_once_on_a_wms_layer_error_and_says_why(monkeypatch):
+    import urllib.error
+
+    body = b'<ServiceExceptionReport><ServiceException code="LayerNotDefined">Layer X not found</ServiceException></ServiceExceptionReport>'
+    fake = _FakeHTTP([(400, body)] * 6)
+    monkeypatch.setattr(hs.urllib.request, "urlopen", fake)
+    monkeypatch.setattr(hs.time, "sleep", lambda s: None)
+    with pytest.raises(urllib.error.HTTPError, match="LayerNotDefined"):
+        hs._get("https://example.org/wms", retries=6)
+    assert fake.calls == 1
+
+
+def test_get_reports_the_server_message_when_it_runs_out_of_tries(monkeypatch):
+    import urllib.error
+
+    fake = _FakeHTTP([(400, b"upstream timeout")] * 3)
+    monkeypatch.setattr(hs.urllib.request, "urlopen", fake)
+    monkeypatch.setattr(hs.time, "sleep", lambda s: None)
+    with pytest.raises(urllib.error.HTTPError, match="upstream timeout"):
+        hs._get("https://example.org/wms", retries=3)
+    assert fake.calls == 3

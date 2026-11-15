@@ -48,22 +48,39 @@ log = logging.getLogger(__name__)
 
 USER_AGENT = "Soil-Disturbance-Detector (free tool for law enforcement)"
 LATEST = "latest"
+TILE_RETRIES = 6  # about a minute of backing off before a tile gives up
+
+
+# A WMS ServiceException with one of these codes means the request itself is
+# wrong (no such layer, bad CRS). Asking again will not change the answer.
+_WMS_FINAL = re.compile(rb'code="(LayerNotDefined|StyleNotDefined|InvalidCRS|InvalidFormat|InvalidDimensionValue|'
+                        rb'MissingDimensionValue|OperationNotSupported)"')
 
 
 def _get(url: str, timeout: int = 60, headers: dict | None = None, retries: int = 3) -> bytes:
+    """GET with retries. Servers have bad minutes: resets, timeouts and, from
+    IGN's Geoplateforme, the odd 400 Bad Request that works a minute later."""
     last: Exception | None = None
     for i in range(retries):
+        if i:
+            time.sleep(min(30, 2 ** i))
         try:
             req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, **(headers or {})})
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return resp.read()
         except urllib.error.HTTPError as exc:
-            if exc.code in (403, 404, 416):
+            try:
+                body = exc.read()[:400]
+            except Exception:
+                body = b""
+            if body:  # say what the server said, not just "Bad Request"
+                exc.msg = f"{exc.msg}: {body.decode('utf-8', 'replace').strip()}"
+            if exc.code in (403, 404, 416) or _WMS_FINAL.search(body):
                 raise
             last = exc
         except Exception as exc:  # resets, timeouts, the usual internet weather
             last = exc
-        time.sleep(1 + 2 * i)
+        log.debug("GET %s failed (try %d of %d): %s", url[:120], i + 1, retries, last)
     raise last  # type: ignore[misc]
 
 
@@ -196,14 +213,14 @@ class WMSSource(Source):
 
         return transform_bounds("EPSG:4326", self.crs, *bbox)
 
-    def _getmap(self, layer: WMSLayer, bbox_crs, w: int, h: int) -> np.ndarray:
+    def _getmap(self, layer: WMSLayer, bbox_crs, w: int, h: int, retries: int = 3) -> np.ndarray:
         """RGBA uint8 array for one request. Transparent or blank means no imagery there."""
         from PIL import Image
 
         params = {"SERVICE": "WMS", "VERSION": "1.3.0", "REQUEST": "GetMap", "LAYERS": layer.name, "STYLES": "",
                   "CRS": self.crs, "BBOX": ",".join(f"{v:.3f}" for v in bbox_crs), "WIDTH": str(w), "HEIGHT": str(h),
                   "FORMAT": "image/png", "TRANSPARENT": "TRUE"}
-        raw = _get(f"{layer.url}?{urllib.parse.urlencode(params)}", timeout=120)
+        raw = _get(f"{layer.url}?{urllib.parse.urlencode(params)}", timeout=120, retries=retries)
         if raw[:1] == b"<":
             raise RuntimeError(f"{self.name} refused layer {layer.name}: {raw[:200].decode('utf-8', 'replace')}")
         return np.asarray(Image.open(io.BytesIO(raw)).convert("RGBA"))
@@ -262,14 +279,16 @@ class WMSSource(Source):
                 h = min(self.max_px, grid.height - r0)
                 w = min(self.max_px, grid.width - c0)
                 tb = (left + c0 * res, top - (r0 + h) * res, left + (c0 + w) * res, top - r0 * res)
-                a = self._getmap(rgb_layer, tb, w, h)
+                # A tile is minutes into a download that should not die of one
+                # bad minute at the server, so tiles get more patience than probes.
+                a = self._getmap(rgb_layer, tb, w, h, retries=TILE_RETRIES)
                 # Some services paint missing coverage solid white instead of
                 # transparent. A whole tile of one flat color is no imagery,
                 # not a very boring photograph.
                 empty = np.ones(a.shape[:2], bool) if self._blank(a) else a[..., 3] < 10
                 out[:3, r0:r0 + h, c0:c0 + w] = np.where(empty[None], 0, a[..., :3].transpose(2, 0, 1))
                 if nir_layer is not None:
-                    n = self._getmap(nir_layer, tb, w, h)
+                    n = self._getmap(nir_layer, tb, w, h, retries=TILE_RETRIES)
                     out[3, r0:r0 + h, c0:c0 + w] = np.where(empty, 0, n[..., self.nir_channel])
         if not out[:3].any():
             raise RuntimeError(f"{self.name} returned no imagery for {year} here.")
