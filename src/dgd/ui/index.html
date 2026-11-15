@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Disturbed Ground Detector</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<link rel="stylesheet" href="/static/app.css">
+<script>window.DGD = { token: "__DGD_TOKEN__", version: "__DGD_VERSION__" };</script>
+</head>
+<body>
+<div id="app">
+  <nav id="side" aria-label="Main">
+    <a class="brand" href="#/cases">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#E6ECEF"></rect><path d="M6 18c3-2.4 5.5-2.4 8 0s5 2.4 8 0" fill="none" stroke="#16232B" stroke-width="1.8" stroke-linecap="round"></path><path d="M6 12.5c3-2.4 5.5-2.4 8 0s5 2.4 8 0" fill="none" stroke="#16232B" stroke-width="1.8" stroke-linecap="round" opacity="0.5"></path><rect x="11" y="6" width="7" height="3.5" rx="1.2" fill="#2BA3A3"></rect></svg>
+      <span>Disturbed Ground<br>Detector</span>
+    </a>
+    <div class="navlinks">
+      <a href="#/cases" data-nav="cases">Cases</a>
+      <a href="#/new" data-nav="new">New search</a>
+      <a href="#/jobs" data-nav="jobs">Jobs <span id="nav-busy" class="nav-badge" hidden></span></a>
+      <a href="#/imagery" data-nav="imagery">Imagery</a>
+      <a href="#/settings" data-nav="settings">Settings</a>
+    </div>
+    <div id="side-status" class="side-status">
+      <span class="live"><span class="dot"></span>Runs on this computer</span>
+      <span id="side-jobs">No jobs running</span>
+      <span class="ver">Version __DGD_VERSION__</span>
+    </div>
+  </nav>
+  <main id="main" tabindex="-1"></main>
+</div>
+<div id="toasts" aria-live="polite"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

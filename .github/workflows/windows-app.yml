@@ -1,0 +1,71 @@
+name: Windows app
+
+# Builds DGD-Setup-<version>.exe on a Windows machine, tests the frozen app,
+# and keeps the installer as a download on the run's page.
+# Runs on a v* tag, on any push that changes the packaging, and by hand
+# (Actions > Windows app > Run workflow, once this file is on main).
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+    branches: ["**"]
+    paths:  # not checked for tags: a tag always builds
+      - "packaging/windows/**"
+      - ".github/workflows/windows-app.yml"
+      - "src/dgd/app.py"
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install dgd and PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install . "pyinstaller>=6.11,<7"
+
+      - name: Draw the icon
+        run: python packaging/windows/make_icon.py packaging/windows/dgd.ico
+
+      - name: Freeze
+        run: pyinstaller --noconfirm --clean --distpath dist --workpath build packaging/windows/dgd.spec
+
+      - name: Smoke test the frozen app
+        run: python packaging/windows/smoke_test.py dist/DGD/DGD.exe
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $version = python -c "import dgd; print(dgd.__version__)"
+          $iscc = (Get-Command iscc.exe -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+          & $iscc "/DAppVersion=$version" packaging\windows\dgd.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Get-Item dist\DGD-Setup-*.exe | Format-Table Name, @{n="MB"; e={[math]::Round($_.Length / 1MB)}}
+
+      - name: Install it silently and run the installed copy
+        shell: pwsh
+        run: |
+          $setup = (Get-Item dist\DGD-Setup-*.exe).FullName
+          Start-Process -Wait -FilePath $setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/CURRENTUSER", "/DIR=$env:RUNNER_TEMP\DGD"
+          & "$env:RUNNER_TEMP\DGD\DGD.exe" --version
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DGD-Setup
+          path: dist/DGD-Setup-*.exe
+          if-no-files-found: error

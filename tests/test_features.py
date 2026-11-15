@@ -1,6 +1,6 @@
 import numpy as np
 
-from dgd.features import build_feature_stack, normalized_difference, safe_divide
+from dgd.features import build_feature_stack, normalized_difference, safe_divide, spectral_indices
 
 
 def test_safe_divide_handles_zero_and_nan():
@@ -29,3 +29,13 @@ def test_build_feature_stack_shapes_and_content():
     assert stack.shape == (18, 2, 2)
     # Brightness difference should be 1 everywhere
     assert np.allclose(stack[-1], 1.0)
+
+
+def test_spectral_indices_tell_grass_from_soil():
+    grass = np.array([0.03, 0.07, 0.04, 0.40, 0.20, 0.10], dtype=np.float32)[:, None]
+    soil = np.array([0.08, 0.11, 0.15, 0.22, 0.30, 0.24], dtype=np.float32)[:, None]
+    g, s = spectral_indices(grass), spectral_indices(soil)
+    assert g["ndvi"][0] > 0.7 and s["ndvi"][0] < 0.3
+    assert s["bsi"][0] > g["bsi"][0]
+    assert s["nbr"][0] < g["nbr"][0]
+    assert set(g) == {"ndvi", "bsi", "nbr", "bright"}

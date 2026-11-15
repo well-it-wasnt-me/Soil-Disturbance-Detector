@@ -1,13 +1,20 @@
 site_name: Disturbed Ground Detector
-site_description: Detect disturbed ground from before/after satellite imagery.
+site_description: Find illegal dumping, waste burning and digging in free satellite imagery. Leads, not evidence.
 theme:
   name: readthedocs
 nav:
   - Home: index.md
   - Quickstart: quickstart.md
-  - Walkthrough: walkthrough.md
-  - CLI Reference: cli.md
+  - Windows app: windows.md
+  - Map interface: ui.md
+  - Field guide: field-guide.md
+  - Grave search: graves.md
+  - How it works: how-it-works.md
+  - Evaluation: evaluation.md
+  - CLI reference: cli.md
+  - Classify mode: classify.md
   - Troubleshooting: troubleshooting.md
+  - Roadmap: roadmap.md
 markdown_extensions:
   - admonition
   - tables

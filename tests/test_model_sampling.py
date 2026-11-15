@@ -19,8 +19,9 @@ def _synthetic_stack():
 
 
 def _training_labels(transform):
-    disturbed = box(0, 0, 2, 2)  # matches the high-valued quadrant
-    background = box(2, 2, 4, 4)
+    # With from_origin(0, 4, 1, 1), rows 0-1 and cols 0-1 are y 4..2 and x 0..2.
+    disturbed = box(0, 2, 2, 4)  # the high-valued quadrant
+    background = box(2, 0, 4, 2)
     gdf = gpd.GeoDataFrame(
         {"class_id": [3, 0]},
         geometry=[disturbed, background],
@@ -37,6 +38,10 @@ def test_extract_training_samples_produces_two_classes():
     x, y = extract_training_samples(stack, transform, gdf)
     assert set(np.unique(y)) == {0, 3}
     assert x.shape[0] == y.shape[0]
+    # Labels match the data now: disturbed samples are the bright ones.
+    assert (x[y == 3] == 5.0).all() and (x[y == 0] == 0.0).all()
+    _, _, groups = extract_training_samples(stack, transform, gdf, return_groups=True)
+    assert set(np.unique(groups)) == {0, 1}
 
 
 def test_train_and_predict_full_image():
@@ -52,6 +57,9 @@ def test_train_and_predict_full_image():
 
     pred, proba = predict_full_image(clf, stack, disturbed_class_id=3)
     assert pred.shape == (4, 4)
+    assert pred[0, 0] == 3 and pred[3, 3] == 0
+    with pytest.raises(ValueError, match="not present"):
+        predict_full_image(clf, stack, disturbed_class_id=7)
     assert proba.shape == (4, 4)
     assert np.nanmax(proba) <= 1.0
     assert np.nanmin(proba) >= 0.0

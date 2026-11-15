@@ -1,11 +1,14 @@
-"""Visualization helpers for overlay outputs."""
+"""Overlay PNG for classify mode: the before image, the detections, a red box and a coordinate."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import geopandas as gpd
-import matplotlib.pyplot as plt
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np
 import rasterio
 from matplotlib.patches import Rectangle
@@ -53,7 +56,7 @@ def save_overlay(
     extent = _get_extent(bounds)
 
     fig, ax = plt.subplots(figsize=(8, 8))
-    ax.imshow(np.transpose(rgb, (0, 1, 2)), extent=extent)
+    ax.imshow(rgb, extent=extent)
 
     # Disturbed polygons outline
     disturbed_gdf.boundary.plot(ax=ax, color="yellow", linewidth=1.5)
@@ -70,12 +73,12 @@ def save_overlay(
     )
     ax.add_patch(rect)
 
-    # Label with lat/long of centroid if possible
+    # Coordinates of the centroid, if the projection cooperates
     label = None
     try:
         center_proj_x = (minx + maxx) / 2
         center_proj_y = miny + 0.02 * (maxy - miny)
-        centroid_ll = disturbed_gdf.to_crs("EPSG:4326").geometry.unary_union.centroid
+        centroid_ll = disturbed_gdf.to_crs("EPSG:4326").geometry.union_all().centroid
         label = f"Lat {centroid_ll.y:.5f}, Lon {centroid_ll.x:.5f}"
         ax.text(
             center_proj_x,

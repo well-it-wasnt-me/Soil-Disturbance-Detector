@@ -1,4 +1,4 @@
-"""Raster IO helpers for reading, masking nodata, and saving outputs."""
+"""Raster IO: read, mask nodata, write. The plumbing nobody thanks you for."""
 
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def apply_nodata(arr: np.ndarray, nodata_value) -> np.ndarray:
 def save_raster(path: Path, array: np.ndarray, profile: dict, dtype: str, nodata):
     """Write a single-band raster to disk with LZW compression."""
 
-    out_profile = profile.copy()
+    out_profile = {k: v for k, v in profile.items() if k not in ("tiled", "blockxsize", "blockysize", "interleave")}
     out_profile.update(count=1, dtype=dtype, compress="lzw", nodata=nodata)
     with rasterio.open(path, "w", **out_profile) as dst:
         dst.write(array.astype(dtype), 1)
