@@ -491,3 +491,39 @@ def test_baseline_years_reach_back_to_the_start_of_the_archive(tmp_path):
     _, argv = build_argv(job, "")
     args = cli.build_parser().parse_args(argv)
     assert args.baseline_years == 6 and args.since.isoformat() == "2025-05-02"
+
+
+def test_jobs_follow_their_folder_when_the_outputs_move(tmp_path):
+    import shutil
+
+    first = App(tmp_path / "a" / "ui", "", port=0, execute=_fake_execute)
+    first.runner.start()
+    job = first.submit({"kind": "trash", "bbox": KIDLINGTON, "name": "Moved"})
+    assert _wait(lambda: job.status == "done")
+    # Copy the outputs somewhere else, the way another account or computer would see them,
+    # with job.json still naming a home folder that does not exist here.
+    moved = tmp_path / "b" / "ui"
+    shutil.copytree(first.output_root, moved)
+    jf = moved / job.id / "job.json"
+    d = json.loads(jf.read_text())
+    d["output_dir"] = f"/home/nobody-here/Projects/x/outputs/ui/{job.id}"
+    jf.write_text(json.dumps(d))
+
+    app = App(moved, "", port=0)
+    assert app.jobs[job.id].output_dir == str((moved / job.id).resolve())
+    assert app.clear_finished() == 1  # used to die making /home/nobody-here
+    assert json.loads(jf.read_text())["output_dir"] == str((moved / job.id).resolve())
+    assert app.result_path(job.id, "report.html") is not None
+    assert app.set_review(job.id, {"lead": "P001", "status": "checked"})["status"] == "checked"
+
+
+def test_an_unexpected_error_becomes_a_500_the_page_can_show(server, monkeypatch):
+    app, port = server
+
+    def boom():
+        raise PermissionError("Permission denied: '/home/someone'")
+
+    monkeypatch.setattr(app, "clear_finished", boom)
+    status, _, body = _req(port, "POST", "/api/jobs/clear", body={}, headers=_good(app))
+    assert status == 500 and "Permission denied" in json.loads(body)["error"]
+    assert _req(port, "GET", "/api/info", headers=_good(app))[0] == 200  # and the server carries on
