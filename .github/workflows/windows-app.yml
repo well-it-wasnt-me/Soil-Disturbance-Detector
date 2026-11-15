@@ -2,17 +2,30 @@ name: Windows app
 
 # Builds DGD-Setup-<version>.exe on a Windows machine, tests the frozen app,
 # and keeps the installer as a download on the run's page.
-# Runs on a v* tag, on any push that changes the packaging, and by hand
-# (Actions > Windows app > Run workflow, once this file is on main).
+#
+# Runs when:
+#   - release.yml calls it, with the version it is about to tag,
+#   - a vX.Y.Z tag is pushed by hand (the installer then goes on that release),
+#   - a push to a branch other than main changes the packaging (main releases through release.yml),
+#   - by hand: Actions > Windows app > Run workflow.
+# The version always comes from git (see docs/releasing.md), never from a file.
 on:
+  workflow_call:
+    inputs:
+      version:
+        description: Version to build. Empty means whatever git says this commit is.
+        type: string
+        required: false
+        default: ""
   workflow_dispatch:
   push:
-    tags: ["v*"]
-    branches: ["**"]
+    tags: ["v[0-9]*"]
+    branches: ["**", "!main"]
     paths:  # not checked for tags: a tag always builds
       - "packaging/windows/**"
       - ".github/workflows/windows-app.yml"
       - "src/dgd/app.py"
+      - "pyproject.toml"
 
 permissions:
   contents: read
@@ -22,18 +35,29 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     permissions:
-      contents: write  # to attach the installer to the release of a v* tag
+      contents: write  # to attach the installer to the release of a pushed tag
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # all history and tags: the version is worked out from them
 
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
       - name: Install dgd and PyInstaller
+        shell: pwsh
         run: |
+          # A release is built before its tag exists, so it is told its version.
+          if ("${{ inputs.version }}") { $env:SETUPTOOLS_SCM_PRETEND_VERSION = "${{ inputs.version }}" }
           python -m pip install --upgrade pip
           python -m pip install . "pyinstaller>=6.11,<7"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $version = python -c "import dgd; print(dgd.__version__)"
+          if ($env:GITHUB_REF_TYPE -eq "tag" -and "v$version" -ne $env:GITHUB_REF_NAME) {
+            Write-Error "Tag $env:GITHUB_REF_NAME but dgd says $version"; exit 1
+          }
+          "Building dgd $version" | Tee-Object -Append $env:GITHUB_STEP_SUMMARY
 
       - name: Draw the icon
         run: python packaging/windows/make_icon.py packaging/windows/dgd.ico
@@ -48,23 +72,27 @@ jobs:
         shell: pwsh
         run: |
           $version = python -c "import dgd; print(dgd.__version__)"
+          $numeric = python -c "import dgd, re; print(re.match(r'[0-9.]*[0-9]', dgd.__version__).group())"
           $iscc = (Get-Command iscc.exe -ErrorAction SilentlyContinue).Source
           if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
           if (-not (Test-Path $iscc)) {
             choco install innosetup -y --no-progress
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
           }
-          & $iscc "/DAppVersion=$version" packaging\windows\dgd.iss
+          & $iscc "/DAppVersion=$version" "/DAppNumVersion=$numeric" packaging\windows\dgd.iss
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           Get-Item dist\DGD-Setup-*.exe | Format-Table Name, @{n="MB"; e={[math]::Round($_.Length / 1MB)}}
 
       - name: Install it silently and run the installed copy
         shell: pwsh
         run: |
+          $version = python -c "import dgd; print(dgd.__version__)"
           $setup = (Get-Item dist\DGD-Setup-*.exe).FullName
           Start-Process -Wait -FilePath $setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/CURRENTUSER", "/DIR=$env:RUNNER_TEMP\DGD"
-          & "$env:RUNNER_TEMP\DGD\DGD.exe" --version
+          $said = & "$env:RUNNER_TEMP\DGD\DGD.exe" --version
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if ($said -ne "dgd $version") { Write-Error "Installed app says '$said', expected 'dgd $version'"; exit 1 }
+          "Installed copy says: $said"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -73,9 +101,9 @@ jobs:
           if-no-files-found: error
 
       # Artifacts expire and need a GitHub login. A release asset does neither,
-      # so a v* tag also puts the installer on its release, making one if needed.
+      # so a hand-pushed tag also puts the installer on its release, making one if needed.
       - name: Attach the installer to the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.ref_type == 'tag'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}

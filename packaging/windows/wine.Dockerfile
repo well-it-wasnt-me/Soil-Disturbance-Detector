@@ -6,6 +6,7 @@
 # version GitHub's Windows runners have.
 FROM docker.io/library/debian:trixie-slim
 
+ARG WINE_VERSION=11.0.0.0~trixie-1
 # Bumping a version means updating its checksum: sha256sum of the download.
 ARG PYTHON_VERSION=3.13.17
 ARG PYTHON_SHA256=dce409744b088f94c6e37ba41f8100c384c27e029e843237364c602d30d475e5
@@ -17,9 +18,17 @@ ARG DEPS
 ENV DEBIAN_FRONTEND=noninteractive WINEDEBUG=-all WINEPREFIX=/wine WINEARCH=win64 XDG_RUNTIME_DIR=/tmp/xdg \
     PYTHON="C:\\Python\\python.exe" ISCC="C:\\Inno\\ISCC.exe"
 
-# wine32 too: the Inno Setup 6 installer and compiler are 32-bit programs.
+# Wine from WineHQ, not Debian: Debian's 10.0 lacks ucrtbase's crealf, which
+# NumPy calls on import (Wine has it since 10.1). The i386 half is for Inno
+# Setup 6, whose installer and compiler are 32-bit programs.
 RUN dpkg --add-architecture i386 && apt-get update \
-    && apt-get install -y --no-install-recommends wine wine64 wine32:i386 xvfb xauth curl unzip ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates curl gpg xvfb xauth unzip \
+    && mkdir -pm755 /etc/apt/keyrings \
+    && curl -fsSL https://dl.winehq.org/wine-builds/winehq.key | gpg --dearmor -o /etc/apt/keyrings/winehq-archive.key \
+    && curl -fsSL -o /etc/apt/sources.list.d/winehq-trixie.sources \
+         https://dl.winehq.org/wine-builds/debian/dists/trixie/winehq-trixie.sources \
+    && apt-get update \
+    && apt-get install -y --install-recommends "winehq-stable=${WINE_VERSION}" "wine-stable=${WINE_VERSION}" \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -m 700 -p "$XDG_RUNTIME_DIR" && wineboot --init && wineserver --wait

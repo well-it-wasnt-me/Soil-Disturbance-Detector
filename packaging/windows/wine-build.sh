@@ -10,7 +10,8 @@ rm -rf /build && mkdir /build && cd /build
 cp -r /repo/pyproject.toml /repo/README.md /repo/LICENSE /repo/src /repo/packaging .
 find src -name __pycache__ -prune -exec rm -rf {} +
 
-echo "== Installing dgd"
+echo "== Installing dgd ${DGD_VERSION:?build-on-linux.sh passes the version, there is no .git in here}"
+export SETUPTOOLS_SCM_PRETEND_VERSION="$DGD_VERSION"  # Wine hands the environment on to Windows programs
 py -m pip install --no-cache-dir --quiet .
 
 echo "== Drawing the icon"
@@ -26,7 +27,8 @@ fi
 
 echo "== Building the installer"
 version=$(py -c "import dgd; print(dgd.__version__)" | tr -d '\r')
-wine "$ISCC" /Q "/DAppVersion=$version" 'packaging\windows\dgd.iss'
+numeric=$(py -c "import dgd, re; print(re.match(r'[0-9.]*[0-9]', dgd.__version__).group())" | tr -d '\r')
+wine "$ISCC" /Q "/DAppVersion=$version" "/DAppNumVersion=$numeric" 'packaging\windows\dgd.iss'
 wineserver --wait
 
 cp dist/DGD-Setup-*.exe /out/
