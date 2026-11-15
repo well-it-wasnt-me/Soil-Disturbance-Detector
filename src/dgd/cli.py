@@ -59,6 +59,9 @@ FETCH_SOURCES = ("naip", "pdok", "ign-fr", "pnoa-es", "nrw-de", "bayern-de", "li
 
 
 def default_cache_dir() -> Path:
+    if os.name == "nt":
+        base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+        return Path(base) / "dgd" / "Cache"
     base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
     return Path(base) / "dgd"
 

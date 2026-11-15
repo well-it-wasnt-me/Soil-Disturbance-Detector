@@ -5,6 +5,7 @@ theme:
 nav:
   - Home: index.md
   - Quickstart: quickstart.md
+  - Windows app: windows.md
   - Map interface: ui.md
   - Field guide: field-guide.md
   - Grave search: graves.md

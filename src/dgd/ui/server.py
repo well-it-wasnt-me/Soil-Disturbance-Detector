@@ -229,6 +229,10 @@ class Runner(threading.Thread):
         _, argv = build_argv(job, self.cache_dir, self.settings)
         job.command = "dgd " + shlex.join(argv)
         job.log.append(job.command)
+        # The packaged app has no Python to hand "-m dgd" to: the executable
+        # is the dgd command itself (see dgd.app).
+        if getattr(sys, "frozen", False):
+            return [sys.executable, *argv]
         return [sys.executable, "-m", "dgd", *argv]
 
     def _execute(self, job: Job) -> None:
@@ -240,7 +244,7 @@ class Runner(threading.Thread):
         with self.lock:
             if job.status == "stopping":
                 raise JobStopped()
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace",
                                     bufsize=1, env=env, start_new_session=posix)
             self.current = (job, proc)
         try:
