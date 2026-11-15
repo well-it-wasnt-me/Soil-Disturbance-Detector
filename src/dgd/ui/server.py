@@ -39,6 +39,7 @@ from urllib.parse import parse_qs, urlparse
 
 from dgd import __version__
 from dgd.progress import parse_progress
+from dgd.stac import S2_FIRST, S2_GOOD
 
 log = logging.getLogger(__name__)
 
@@ -54,6 +55,34 @@ LIMITS_KM2 = {"trash": 400.0, "burial_wide": 400.0, "graves_file": 2.0}
 OAM_TILE_DEG = 1.0
 OAM_CACHE_S = 3600
 WAYBACK_CONFIG = "https://s3-us-west-2.amazonaws.com/config.maptiles.arcgis.com/waybackconfig.json"
+
+
+# Baseline years before the Sentinel-2 archive starts find nothing. See dgd.stac.
+MAX_BASELINE_YEARS = 10
+
+
+def max_baseline_years(target_start: date) -> int:
+    """How many previous years of the same season Sentinel-2 can still provide for a window starting then."""
+    from dgd.anomaly import shift_years
+
+    k = 0
+    while k < MAX_BASELINE_YEARS and shift_years(target_start, -(k + 1)) >= S2_FIRST:
+        k += 1
+    return k
+
+
+def _baseline_years(p: dict, target_start: str) -> int:
+    try:
+        years = int(p.get("baseline_years", 3))
+    except (TypeError, ValueError):
+        raise ValueError("baseline years must be a whole number") from None
+    most = max_baseline_years(date.fromisoformat(target_start))
+    if most < 1:
+        raise ValueError(f"Sentinel-2 imagery starts in November 2016, so a window starting {target_start} has no earlier year to compare with")
+    if not 1 <= years <= most:
+        raise ValueError(f"baseline years must be 1 to {most}: Sentinel-2 imagery starts in November 2016, "
+                         f"so a window starting {target_start} can look back at most {most} years")
+    return years
 
 
 def area_km2(bbox) -> float:
@@ -125,7 +154,7 @@ def build_argv(job: Job, cache_dir: str, settings: dict | None = None) -> tuple[
                 argv += [flag, f"{value:g}"]
         return "scan", argv + common
     if job.kind == "burial_wide":
-        argv = ["scan", "--aoi", str(aoi), "--preset", "burial", "--since", p["since"]]
+        argv = ["scan", "--aoi", str(aoi), "--preset", "burial", "--since", p["since"], "--baseline-years", str(p.get("baseline_years", 3))]
         if p.get("end"):
             argv += ["--end", p["end"]]
         return "scan", argv + common
@@ -329,13 +358,12 @@ def validate(payload: dict) -> tuple[str, str, list[float], dict]:
     if kind == "trash":
         params["end"] = _date(p.get("end"), "end", False) or date.today().isoformat()
         params["start"] = _date(p.get("start"), "start", False) or (date.fromisoformat(params["end"]) - timedelta(days=182)).isoformat()
-        params["baseline_years"] = int(p.get("baseline_years", 3))
-        if not 1 <= params["baseline_years"] <= 6:
-            raise ValueError("baseline years must be 1 to 6")
+        params["baseline_years"] = _baseline_years(p, params["start"])
         limit = LIMITS_KM2["trash"]
     elif kind == "burial_wide":
         params["since"] = _date(p.get("since"), "missing since")
         params["end"] = _date(p.get("end"), "end", False)
+        params["baseline_years"] = _baseline_years(p, params["since"])
         limit = LIMITS_KM2["burial_wide"]
     else:
         from dgd.highres_sources import LATEST, SOURCES, parse_year
@@ -1086,6 +1114,7 @@ def make_handler(app: App):
                 return self._json(403, {"error": "bad token"})
             if url.path == "/api/info":
                 return self._json(200, {"version": __version__, "today": date.today().isoformat(), "limits_km2": LIMITS_KM2,
+                                        "s2_first": S2_FIRST.isoformat(), "s2_good": S2_GOOD.isoformat(), "max_baseline_years": MAX_BASELINE_YEARS,
                                         "settings": app.public_settings()})
             if url.path == "/api/settings":
                 return self._json(200, app.public_settings())
@@ -1267,4 +1296,4 @@ def serve(output_root: Path, cache_dir: str, port: int = 8765, open_browser: boo
         httpd.server_close()
 
 
-__all__ = ["App", "Job", "LIMITS_KM2", "LocalServer", "OAM_TILE_DEG", "area_km2", "build_argv", "make_handler", "serve", "validate"]
+__all__ = ["App", "Job", "LIMITS_KM2", "S2_FIRST", "max_baseline_years", "LocalServer", "OAM_TILE_DEG", "area_km2", "build_argv", "make_handler", "serve", "validate"]

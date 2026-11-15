@@ -28,6 +28,11 @@ log = logging.getLogger(__name__)
 EARTH_SEARCH_URL = "https://earth-search.aws.element84.com/v1"
 COLLECTION_C1 = "sentinel-2-c1-l2a"
 COLLECTION_LEGACY = "sentinel-2-l2a"
+# How far back Earth Search goes. The legacy collection starts in November 2016
+# over Europe, the newer one in March 2018, and both start later in parts of
+# the world. Before 2017 there is also only one satellite, so half the looks.
+S2_FIRST = date(2016, 11, 1)
+S2_GOOD = date(2018, 1, 1)
 
 # Order matters. Downstream code indexes bands by position.
 REFLECTANCE_BANDS = ("blue", "green", "red", "nir", "swir16", "swir22")

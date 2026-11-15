@@ -73,3 +73,18 @@ def test_legacy_download_flags_run_download_then_classify(monkeypatch):
 def test_legacy_download_without_place_says_what_is_missing():
     with pytest.raises(SystemExit, match="--long"):
         cli.main(["--download-sentinel", "--lat", "1", "--before-date", "2023-01-01", "--after-date", "2024-01-01"])
+
+
+def test_scan_warns_about_baseline_years_before_the_archive(monkeypatch, caplog):
+    seen = {}
+
+    def fake_run(config, source, progress=None):
+        seen["years"] = config.baseline_years
+        raise RuntimeError("stop here")
+
+    monkeypatch.setattr("dgd.scan.run_scan", fake_run)
+    rc = cli.main(["scan", "--lat", "52.3", "--lon", "4.9", "--start", "2020-04-01", "--end", "2020-09-30", "--baseline-years", "6", "--no-progress", "--no-cache"])
+    assert rc == 1 and seen["years"] == 6  # still runs, with the years that exist
+    assert "before Sentinel-2 imagery" in caplog.text
+    with pytest.raises(SystemExit, match="at least 1"):
+        cli.main(["scan", "--lat", "52.3", "--lon", "4.9", "--baseline-years", "0", "--no-progress"])

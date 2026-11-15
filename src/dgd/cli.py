@@ -107,7 +107,9 @@ def build_parser() -> argparse.ArgumentParser:
     w.add_argument("--since", type=_date, help="For --preset burial: the date the person went missing. Sets --start.")
     w.add_argument("--start", type=_date, help="Target window start, YYYY-MM-DD. Default: 6 months before --end.")
     w.add_argument("--end", type=_date, help="Target window end, YYYY-MM-DD. Default: today.")
-    w.add_argument("--baseline-years", type=int, default=3, help="Prior years used as 'normal'. Default 3.")
+    w.add_argument("--baseline-years", type=int, default=3,
+                   help="Prior years used as 'normal'. Default 3. More years make 'normal' sturdier, as far back as "
+                        "the archive goes: November 2016 at best, 2018 in many places.")
     t = s.add_argument_group("thresholds")
     t.add_argument("--min-score", type=float, default=3.0, help="Persistent change score threshold (robust z). Default 3.")
     t.add_argument("--min-event-score", type=float, help="Transient dig event threshold (robust z). Default 4, burial 3.5.")
@@ -250,6 +252,17 @@ def cmd_scan(args, progress=None) -> int:
     else:
         end = args.end or today
     start = args.start or (end - timedelta(days=preset["window_days"]))
+    if args.baseline_years < 1:
+        raise SystemExit("--baseline-years must be at least 1.")
+    from dgd.anomaly import shift_years
+    from dgd.stac import S2_FIRST, S2_GOOD
+
+    oldest = shift_years(start, -args.baseline_years)
+    if oldest < S2_FIRST:
+        log.warning("The oldest baseline year starts %s, before Sentinel-2 imagery on Earth Search (November 2016). "
+                    "Those years add nothing; the scan uses the ones that have imagery.", oldest)
+    elif oldest < S2_GOOD:
+        log.info("Baseline years before 2018 have thinner Sentinel-2 coverage, and none in parts of the world.")
     excl = () if args.exclude_landcover.strip().lower() == "none" else parse_classes(args.exclude_landcover)
     out = Path(args.output_dir or f"outputs/scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
     cache = None if args.no_cache else Path(args.cache_dir).expanduser()

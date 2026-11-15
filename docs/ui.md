@@ -28,8 +28,8 @@ Searches can also run without a case. They show up in Jobs, and a results page o
 1. **Find the place.** Type a town, an address or `lat, lon`, or just zoom. The layer button top right switches between satellite and street maps, and *Imagery from* shows Esri's older satellite and aerial imagery for any release date. That is for looking only and never used as input.
 2. **Area.** Click *Draw box* and drag. The panel shows the size and a bar against the limit for the chosen search, which turns red when the box is too big.
 3. **Look for.**
-    - **Dumping and burning**: the Sentinel-2 scan. Pick the date window and how many previous years count as normal. Up to 400 km².
-    - **Burial, wide area**: the Sentinel-2 burial preset from the date the person went missing. It finds machine-sized digging, burning and tracks, not a hand-dug grave.
+    - **Dumping and burning**: the Sentinel-2 scan. Pick the date window and how many previous years count as normal: up to as far back as Sentinel-2 imagery goes from that date (November 2016 at best, at most 10 years). Years before 2018 are flagged, because coverage is thinner there and missing in parts of the world. Up to 400 km².
+    - **Burial, wide area**: the Sentinel-2 burial preset from the date the person went missing, with the same choice of how many previous years count as normal. It finds machine-sized digging, burning and tracks, not a hand-dug grave.
     - **Grave search**: high resolution. The imagery list fills in with the free sources covering your box, and the year lists show what each service has there. Or give the path of your own drone or aerial GeoTIFF. *See every year as a table* opens the Imagery page for the same box. The map shows where free high resolution imagery exists.
 4. **Run.** The job tray over the map shows every job with a progress bar: which step it is on, and how far through the downloads.
 

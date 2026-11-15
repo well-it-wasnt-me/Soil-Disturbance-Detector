@@ -179,7 +179,8 @@ def run_scan(config: ScanConfig, source: SceneSource, progress=None, landcover_l
     if not tgt_acqs:
         raise RuntimeError("No Sentinel-2 passes in the target window. Widen it or relax the cloud limit.")
     if not base_acqs:
-        raise RuntimeError("No Sentinel-2 passes in the baseline years. Sentinel-2 starts in mid 2015, the time machine is extra.")
+        raise RuntimeError("No Sentinel-2 passes in the baseline years. Earth Search's archive starts in November 2016 at best, "
+                           "and in 2018 in many places. Use fewer --baseline-years or a later window.")
 
     progress.step(f"Fetching {len(base_acqs) + len(tgt_acqs)} passes")
     tick, done = progress.counter(len(base_acqs) + len(tgt_acqs), "passes")

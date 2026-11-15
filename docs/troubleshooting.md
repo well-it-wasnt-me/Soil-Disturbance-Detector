@@ -2,7 +2,7 @@
 
 ## "No Sentinel-2 passes in the target window"
 
-The archive has nothing for that place and time under the cloud limit. Widen the window, check the dates (`YYYY-MM-DD`, start before end), or raise `--max-cloud`. Sentinel-2 starts in mid 2015, with good coverage from 2017 and Level-2A from about 2018 in most places.
+The archive has nothing for that place and time under the cloud limit. Widen the window, check the dates (`YYYY-MM-DD`, start before end), or raise `--max-cloud`. Earth Search's Sentinel-2 archive starts in November 2016 over Europe and in 2018 in many other places, with only one satellite before 2017. Baseline years before that add nothing.
 
 ## "Only N usable target passes" or "Only N usable baseline passes"
 

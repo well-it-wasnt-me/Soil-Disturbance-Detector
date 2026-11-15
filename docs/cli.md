@@ -38,7 +38,7 @@ Add `-v` before the command for debug logging.
 | `--since` | | For `--preset burial`: the date the person went missing. Sets `--start`, and `--end` defaults to 150 days later or today. |
 | `--start` | 6 months before `--end` | Target window start, `YYYY-MM-DD`. |
 | `--end` | today | Target window end. Window can be at most a year. |
-| `--baseline-years` | `3` | How many previous years define "normal" for this season. |
+| `--baseline-years` | `3` | How many previous years define "normal" for this season. More years make "normal" sturdier. The archive goes back to November 2016 over Europe and 2018 in many other places; years before that add nothing and the scan says so. |
 
 ### Thresholds
 

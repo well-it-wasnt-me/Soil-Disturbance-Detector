@@ -641,6 +641,35 @@ async function renderNew(q) {
     q: h("input", { class: "input", id: "n-q", type: "search", placeholder: "Town, address or lat, lon", autocomplete: "off" }),
   };
   const qres = h("div", { class: "small" });
+  // The year picker's options depend on the start date, so a new date redraws the panel.
+  I.start.addEventListener("change", () => draw());
+  I.since.addEventListener("change", () => draw());
+
+  /* How many previous years of the same season Sentinel-2 still has for a window starting then. */
+  function maxBase(startIso) {
+    if (!startIso) return 3;
+    const first = new Date(S.info.s2_first + "T00:00:00"), start = new Date(startIso + "T00:00:00");
+    let k = 0;
+    while (k < S.info.max_baseline_years) {
+      const d = new Date(start); d.setFullYear(start.getFullYear() - (k + 1));
+      if (d < first) break;
+      k++;
+    }
+    return k;
+  }
+  function baselineField(startIso) {
+    const most = maxBase(startIso);
+    if (I.base > most) I.base = Math.max(1, most);
+    const y0 = new Date((startIso || today) + "T00:00:00").getFullYear();
+    const years = Array.from({ length: I.base }, (_, i) => y0 - I.base + i);
+    const thin = years.filter(y => y < +S.info.s2_good.slice(0, 4));
+    const sel = h("select", { class: "input", id: "n-base", disabled: most < 1, onchange: e => { I.base = +e.target.value; draw(); } },
+      Array.from({ length: Math.max(1, most) }, (_, i) => i + 1).map(n => h("option", { value: String(n), selected: n === I.base }, `${n} year${n > 1 ? "s" : ""}`)));
+    return h("div", { class: "field" }, h("label", { for: "n-base" }, "Normal looks like the same season in the previous"), sel,
+      most < 1 ? h("span", { class: "small", style: { color: "var(--danger)" } }, "Sentinel-2 imagery starts in November 2016, so there is no earlier year to compare with. Pick a later date.")
+        : h("span", { class: "small muted" }, `${years.join(", ")} count as normal. Up to ${most} years back from this date.`),
+      thin.length ? h("span", { class: "small", style: { color: "var(--warn)" } }, `Before 2018 Sentinel-2 imagery is thinner, and missing in many places. ${thin.join(", ")} may add little.`) : null);
+  }
   I.caseSel.addEventListener("change", () => { state.case = I.caseSel.value; const c = caseObj(); if (c && c.missing_since && !I.since.value) I.since.value = c.missing_since; });
   I.src.addEventListener("change", () => { loadYears(); draw(); });
   I.ay.addEventListener("change", draw);
@@ -705,7 +734,7 @@ async function renderNew(q) {
     if (lim && a > lim) { toast(`The box is ${a.toFixed(2)} km². The limit here is ${lim} km². Draw a smaller one.`, true); return; }
     let params = {};
     if (state.kind === "trash") params = { start: I.start.value, end: I.end.value, baseline_years: I.base };
-    if (state.kind === "burial_wide") { if (!I.since.value) { toast("Give the date the person went missing.", true); return; } params = { since: I.since.value, end: I.until.value }; }
+    if (state.kind === "burial_wide") { if (!I.since.value) { toast("Give the date the person went missing.", true); return; } params = { since: I.since.value, end: I.until.value, baseline_years: I.base }; }
     if (state.kind === "graves") {
       params = { source: I.src.value, osm_file: I.osm.value.trim(), mass: I.mass.checked };
       if (I.src.value === "file") Object.assign(params, { after_path: I.after.value.trim(), before_path: I.before.value.trim(), bands: I.bands.value });
@@ -725,16 +754,14 @@ async function renderNew(q) {
     const meterCls = !state.bbox ? "" : a > lim ? " meter-over" : " meter-ok";
     const details = [];
     if (state.kind === "trash") {
-      const y0 = new Date(I.start.value || today).getFullYear();
       details.push(h("div", { class: "grid2" }, h("div", { class: "field" }, h("label", { for: "n-start" }, "From"), I.start), h("div", { class: "field" }, h("label", { for: "n-end" }, "To"), I.end)),
-        h("div", { class: "field" }, h("span", { class: "label", id: "base-l" }, "Normal looks like the same season in the previous"),
-          h("div", { class: "seg", role: "group", "aria-labelledby": "base-l" }, [2, 3, 4, 5].map(n => h("button", { type: "button", "aria-pressed": String(I.base === n), onclick: () => { I.base = n; draw(); } }, `${n} years`))),
-          h("span", { class: "small muted" }, `${Array.from({ length: I.base }, (_, i) => y0 - I.base + i).join(", ")} count as normal.`)),
+        baselineField(I.start.value),
         h("details", { class: "card", style: { padding: "10px 12px" } }, h("summary", { style: { cursor: "pointer", fontWeight: 500 } }, "Thresholds"),
           h("p", { class: "small muted", style: { margin: "6px 0 0" } }, `Change score ${S.settings.dumping.min_score} · smallest lead ${S.settings.dumping.min_area_m2} m² · lasts ${S.settings.dumping.min_event_days} days. `,
             h("a", { href: "#/settings" }, "Change in Settings"))));
     } else if (state.kind === "burial_wide") {
       details.push(h("div", { class: "grid2" }, h("div", { class: "field" }, h("label", { for: "n-since" }, "Missing since"), I.since), h("div", { class: "field" }, h("label", { for: "n-until" }, "Until (optional)"), I.until)),
+        baselineField(I.since.value),
         h("p", { class: "small muted", style: { margin: 0 } }, "Finds machine-dug pits, burning and fresh tracks. It cannot see a hand-dug grave. Use it to decide where to fly, never to clear an area."));
     } else {
       details.push(h("div", { class: "banner danger" }, icon("alert"), h("span", {}, h("b", {}, "Do not dig. "), "Leads are for a careful look on the ground, by people trained for it.")),

@@ -469,3 +469,25 @@ def test_monthly_pass_counts():
 
     acqs = [SimpleNamespace(date=date(2025, 5, d), cloud_cover=c) for d, c in ((1, 5.0), (6, 60.0), (11, 19.9))] + [SimpleNamespace(date=date(2025, 6, 1), cloud_cover=20.0)]
     assert monthly_pass_counts(acqs) == {"2025-05": {"all": 3, "clear": 2}, "2025-06": {"all": 1, "clear": 0}}
+
+
+def test_baseline_years_reach_back_to_the_start_of_the_archive(tmp_path):
+    from datetime import date
+
+    from dgd.ui.server import Job, max_baseline_years
+
+    assert max_baseline_years(date(2025, 4, 1)) == 8      # 2017-04 is still after November 2016
+    assert max_baseline_years(date(2026, 11, 15)) == 10   # capped
+    assert max_baseline_years(date(2017, 3, 1)) == 0      # nothing earlier exists
+    _, _, _, p = validate({"kind": "trash", "bbox": KIDLINGTON, "params": {"start": "2025-04-01", "end": "2025-09-30", "baseline_years": 8}})
+    assert p["baseline_years"] == 8
+    with pytest.raises(ValueError, match="at most 8 years"):
+        validate({"kind": "trash", "bbox": KIDLINGTON, "params": {"start": "2025-04-01", "end": "2025-09-30", "baseline_years": 9}})
+    with pytest.raises(ValueError, match="no earlier year"):
+        validate({"kind": "trash", "bbox": KIDLINGTON, "params": {"start": "2017-01-01", "end": "2017-06-30", "baseline_years": 1}})
+    _, _, _, p = validate({"kind": "burial_wide", "bbox": KIDLINGTON, "params": {"since": "2025-05-02", "baseline_years": 6}})
+    assert p["baseline_years"] == 6
+    job = Job(id="b", kind="burial_wide", name="B", bbox=KIDLINGTON, params=p, output_dir=str(tmp_path))
+    _, argv = build_argv(job, "")
+    args = cli.build_parser().parse_args(argv)
+    assert args.baseline_years == 6 and args.since.isoformat() == "2025-05-02"
